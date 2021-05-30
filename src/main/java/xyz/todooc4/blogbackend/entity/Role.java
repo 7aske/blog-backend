@@ -5,6 +5,7 @@ import java.time.*;
 import java.util.*;
 import javax.persistence.*;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
 
 /**
  * User permissions
@@ -14,7 +15,7 @@ import lombok.*;
 @NoArgsConstructor
 @Table(name = "role")
 @EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
-public class Role extends Auditable {
+public class Role extends Auditable implements GrantedAuthority {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@EqualsAndHashCode.Include
@@ -26,5 +27,9 @@ public class Role extends Auditable {
 	@JsonIgnore
 	@JoinTable(name = "user_role", joinColumns = @JoinColumn(name = "role_fk"), inverseJoinColumns = @JoinColumn(name = "user_fk"))
 	private List<User> users;
-	
+
+	@Override
+	public String getAuthority() {
+		return String.format("ROLE_%s", name.toUpperCase(Locale.ROOT));
+	}
 }

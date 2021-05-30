@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import xyz.todooc4.blogbackend.data.dto.RegisterRequest;
 import xyz.todooc4.blogbackend.entity.*;
 
 public interface UserService {
@@ -15,6 +16,10 @@ public interface UserService {
 	User update(User user);
 
 	User findById(Integer userId);
+
+	User findByUsername(String username);
+
+	User signup(RegisterRequest registerRequest);
 
 	void deleteById(Integer userId);
 

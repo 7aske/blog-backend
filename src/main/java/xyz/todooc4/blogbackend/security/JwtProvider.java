@@ -1,30 +1,58 @@
 package xyz.todooc4.blogbackend.security;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.stereotype.Service;
+import io.jsonwebtoken.*;
+import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import java.security.Key;
+import javax.servlet.http.HttpServletRequest;
+import java.util.Collection;
+import java.util.Date;
+import java.util.stream.Collectors;
 
-@Service
+@Component
+@NoArgsConstructor
 public class JwtProvider {
-    //Prevent creating a key every time a token is generated
-    private Key key;
 
-    @PostConstruct
-    public void init() {
-        key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
-    }
+	@Value("${jwt.secret-key:secret}")
+	private String secretKey;
+	@Value("${jwt.expire-length:7200000}")
+	private long validityInMilliseconds;
 
-    public String generateToken(Authentication authentication){
-        User principal = (User) authentication.getPrincipal();
-        return Jwts.builder()
-                .setSubject(principal.getUsername())
-                .signWith(key)
-                .compact();
-    }
+	public String createToken(String username, Collection<? extends GrantedAuthority> authorities) {
+		Claims claims = Jwts.claims().setSubject(username);
+		claims.put("roles", authorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
+		Date now = new Date();
+		Date validity = new Date(now.getTime() + validityInMilliseconds);
+		return Jwts.builder()
+				.setClaims(claims)
+				.setIssuedAt(now)
+				.setExpiration(validity)
+				.signWith(SignatureAlgorithm.HS256, secretKey)
+				.compact();
+	}
+
+	public String getUsername(String token) {
+		return Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token).getBody().getSubject();
+	}
+
+	public String resolveToken(HttpServletRequest req) {
+		String bearerToken = req.getHeader(SecurityConstants.HEADER_STRING);
+
+		if (bearerToken == null || !bearerToken.startsWith(SecurityConstants.TOKEN_PREFIX)) {
+			return null;
+		}
+
+		return bearerToken.substring(SecurityConstants.TOKEN_PREFIX.length());
+	}
+
+	public boolean validateToken(String token) {
+		try {
+			Jws<Claims> claims = Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token);
+			return !claims.getBody().getExpiration().before(new Date());
+		} catch (JwtException | IllegalArgumentException e) {
+			return false;
+		}
+	}
 }
